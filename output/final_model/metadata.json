@@ -1,0 +1,45 @@
+{
+  "class_names": [
+    "AnnualCrop",
+    "Forest",
+    "HerbaceousVegetation",
+    "Highway",
+    "Industrial",
+    "Pasture",
+    "PermanentCrop",
+    "Residential",
+    "River",
+    "SeaLake"
+  ],
+  "image_shape": [
+    32,
+    32,
+    3
+  ],
+  "args": {
+    "data_dir": "./data",
+    "output_dir": "./output/final_model",
+    "image_size": 32,
+    "epochs": 80,
+    "batch_size": 256,
+    "lr": 0.08,
+    "lr_decay": 0.98,
+    "min_lr": 1e-05,
+    "weight_decay": 0.005,
+    "hidden": [
+      512,
+      128
+    ],
+    "activation": "relu",
+    "seed": 42,
+    "eval_every": 1,
+    "search": false,
+    "search_epochs": 8,
+    "search_lrs": "0.2,0.12,0.08,0.05,0.03,0.01",
+    "search_hidden": "128,64;256,128;512,128;512,256;1024,512",
+    "search_weight_decay": "0,0.00001,0.0001,0.0005,0.001",
+    "no_normalize": false,
+    "no_cache": false
+  },
+  "best_val_acc": 0.6891358024691357
+}
