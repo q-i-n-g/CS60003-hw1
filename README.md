@@ -1,108 +1,88 @@
 # CV-pj1
 
-NumPy implementation of a three-layer MLP classifier for EuroSAT RGB land-cover classification.
+本项目使用 NumPy 从零实现三层 MLP 分类器，在 EuroSAT RGB 遥感图像数据集上完成 10 类地表覆盖分类。代码手动实现前向传播、Softmax 交叉熵、L2 正则化、反向传播、SGD 更新和学习率衰减，不使用 PyTorch、TensorFlow、JAX 等自动微分框架。
 
-## Environment
+## 环境依赖
 
 ```bash
 pip install numpy pillow matplotlib tqdm
 ```
 
-No PyTorch, TensorFlow, JAX, or automatic-differentiation framework is used.
+## 数据准备
 
-## Data
-
-Place the EuroSAT RGB class folders under `./data`, for example:
+将 EuroSAT RGB 数据集的 10 个类别文件夹放在 `./data` 下，例如：
 
 ```text
 data/
   AnnualCrop/
   Forest/
-  ...
+  HerbaceousVegetation/
+  Highway/
+  Industrial/
+  Pasture/
+  PermanentCrop/
+  Residential/
+  River/
   SeaLake/
 ```
 
-The loader performs a stratified 70/15/15 train/validation/test split. By default, images are resized to `32x32`, cached under `output/cache/`, and standardized with train-split mean/std for faster MLP optimization.
+数据加载时会按类别分层划分为训练集、验证集和测试集，比例为 `70% / 15% / 15%`。默认设置下，图像会缩放到 `32x32`，缓存到 `output/cache/`，并使用训练集均值和标准差进行标准化，以加速 MLP 优化。
 
-## Quick Training
+## 快速训练
 
 ```bash
 python quick_train.py --data-dir ./data --output-dir ./output/final_model
 ```
 
-## Hyperparameter Search + Final Training
+## 超参数搜索
+
+运行顺序超参数搜索，并在搜索后自动使用最优组合进行最终训练：
 
 ```bash
 python train.py --data-dir ./data --output-dir ./output/final_model --search
 ```
+## 最终训练
 
-Default search uses a sequential strategy instead of a full Cartesian grid. It starts from the normal defaults, searches one hyperparameter at a time, and passes the best value to the next stage. This gives 16 short search runs by default:
-
-- learning rate: `0.2`, `0.12`, `0.08`, `0.05`, `0.03`, `0.01`
-- hidden dimensions: `128,64`, `256,128`, `512,128`, `512,256`, `1024,512`
-- weight decay: `0`, `0.00001`, `0.0001`, `0.0005`, `0.001`
-
-The order is learning rate first, hidden dimensions second, weight decay last.
-
-Useful speed/quality knobs:
-
-```bash
-python train.py --data-dir ./data --output-dir ./output/final_model \
-  --image-size 32 --batch-size 512 --epochs 30 \
-  --hidden 256,128 --activation relu --lr 0.08 \
-  --lr-decay 0.94 --weight-decay 0.0005
-```
-
-If validation accuracy is still rising near the end, use a larger model and slower decay:
+本实验报告中使用的最终配置如下：
 
 ```bash
 python train.py --data-dir ./data --output-dir ./output/final_model \
   --image-size 32 --batch-size 256 --epochs 80 \
-  --hidden 1024,512 --activation relu --lr 0.05 \
-  --lr-decay 0.98 --weight-decay 0.0001
+  --hidden 512,128 --activation relu --lr 0.08 \
+  --lr-decay 0.98 --weight-decay 0.005
 ```
 
-Use `--image-size 64` if the report must use original-resolution MLP inputs. This is much slower.
+## 激活函数切换
 
-## Test
+模型支持在两层隐藏层中切换激活函数，可选值为：
+
+```text
+relu
+tanh
+sigmoid
+```
+
+使用 `--activation` 参数切换
+
+## 测试评估
+
+加载保存好的最佳模型，在独立测试集上输出准确率和混淆矩阵：
 
 ```bash
-python test.py --data-dir ./data --model-path ./output/final_model/model.npy --output-dir ./output/final_model
+python test.py --data-dir ./data \
+  --model-path ./output/final_model/model.npy \
+  --output-dir ./output/final_model
 ```
 
-The test script prints accuracy and the confusion matrix, and saves `confusion_matrix.png` and `error_examples.png`.
+## 主要文件结构
 
-## Figures for Report
-
-```bash
-python plot/plot.py --data-dir ./data --model-path ./output/final_model/model.npy \
-  --history-path ./output/final_model/history.json --output-dir ./output/final_model/figure
-
-python plot/plot_image.py --data-dir ./data --output-path ./output/data/examples.png
+```text
+load_data.py        数据加载、划分、预处理和缓存
+model.py            三层 MLP、手写反向传播、SGD 训练
+train.py            训练入口、学习率衰减、超参数搜索、保存最佳模型
+quick_train.py      快速训练入口
+test.py             测试集评估、混淆矩阵、错例图
+utils.py            准确率、混淆矩阵、画图工具函数
+plot/plot.py        生成训练曲线、搜索曲线、第一层权重图
+plot/plot_image.py  生成数据集样例图
 ```
-
-Recommended figures for the homework report:
-
-- Dataset examples: `output/data/examples.png`
-- Training and validation loss curves: `output/final_model/figure/loss_curve.png`
-- Validation accuracy curve: `output/final_model/figure/val_accuracy_curve.png`
-- Hyperparameter search curves:
-  - `output/final_model/figure/search_lr_curve.png`
-  - `output/final_model/figure/search_hidden_curve.png`
-  - `output/final_model/figure/search_weight_decay_curve.png`
-  - `output/final_model/figure/search_summary_curves.png`
-- First-layer weight visualization: `output/final_model/figure/first_layer_weights.png`
-- Test confusion matrix: `output/final_model/figure/confusion_matrix.png`
-- Error analysis examples: `output/final_model/figure/error_examples.png`
-
-Training saves:
-
-- `output/final_model/model.npy`: best validation model weights.
-- `output/final_model/history.json`: train loss, validation loss, validation accuracy, learning rate.
-- `output/final_model/search_results.json`: grid search results when `--search` is used.
-- `output/final_model/figure/loss_curve.png`
-- `output/final_model/figure/val_accuracy_curve.png`
-- `output/final_model/figure/first_layer_weights.png`
-- `output/final_model/figure/search_lr_curve.png`
-- `output/final_model/figure/search_hidden_curve.png`
-- `output/final_model/figure/search_weight_decay_curve.png`
